@@ -278,8 +278,7 @@ public abstract class SQLTableManager<OBJECT_TYPE extends DBSEntity, CONTAINER_T
             return actions.toArray(new DBEPersistAction[0]);
         }
 
-        if (table.isPersisted() &&
-            isIncludeDropInDDL(table) &&
+        if (isIncludeDropInDDL(table) &&
             !CommonUtils.getOption(options, DBPScriptObject.OPTION_SKIP_DROPS)
         ) {
             actions.add(new SQLDatabasePersistActionComment(table.getDataSource(), "Drop table"));

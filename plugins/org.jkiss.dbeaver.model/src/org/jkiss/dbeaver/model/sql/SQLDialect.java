@@ -527,7 +527,10 @@ public interface SQLDialect {
 
     boolean supportsAlterTableStatement();
 
+    boolean supportsDropTableStatement();
+
     boolean supportsIndexCreateAndDrop();
+
 
     boolean supportsInsertAllDefaultValuesStatement();
 

@@ -44,6 +44,7 @@ import org.jkiss.dbeaver.model.runtime.AbstractJob;
 import org.jkiss.dbeaver.model.runtime.DBRProgressMonitor;
 import org.jkiss.dbeaver.model.sql.generator.SQLGenerator;
 import org.jkiss.dbeaver.model.struct.DBSObject;
+import org.jkiss.dbeaver.model.struct.rdb.DBSTable;
 import org.jkiss.dbeaver.ui.UIUtils;
 import org.jkiss.dbeaver.ui.editors.sql.dialogs.ViewSQLDialog;
 import org.jkiss.dbeaver.ui.editors.sql.internal.SQLEditorMessages;
@@ -92,6 +93,7 @@ class SQLGeneratorDialog extends ViewSQLDialog {
         boolean supportFullDDL = false;
         boolean supportSeparateFKStatements = false;
         boolean supportsPartitionsDDL = false;
+        boolean supportsSkipDrop = false;
         for (Object object : sqlGenerator.getObjects()) {
             if (object instanceof DBPScriptObjectExt2 sourceObject) {
                 if (sourceObject.supportsObjectDefinitionOption(DBPScriptObject.OPTION_INCLUDE_PERMISSIONS)) {
@@ -114,6 +116,11 @@ class SQLGeneratorDialog extends ViewSQLDialog {
                     supportsPartitionsDDL = true;
                 }
             }
+            if (object instanceof DBSTable t && t.getDataSource() != null
+                && t.getDataSource().getSQLDialect().supportsDropTableStatement()
+            ) {
+                supportsSkipDrop = true;
+            }
         }
 
         sqlGenerator.setShowPermissions(getDialogBoundsSettings().get(DBPScriptObject.OPTION_INCLUDE_PERMISSIONS) != null &&
@@ -121,7 +128,9 @@ class SQLGeneratorDialog extends ViewSQLDialog {
         sqlGenerator.setShowComments(getDialogBoundsSettings().get(DBPScriptObject.OPTION_INCLUDE_COMMENTS) != null &&
                 getDialogBoundsSettings().getBoolean(DBPScriptObject.OPTION_INCLUDE_COMMENTS));
         sqlGenerator.setShowFullDdl(getDialogBoundsSettings().get(DBPScriptObject.OPTION_INCLUDE_NESTED_OBJECTS) != null &&
-                getDialogBoundsSettings().getBoolean(DBPScriptObject.OPTION_INCLUDE_NESTED_OBJECTS));
+            getDialogBoundsSettings().getBoolean(DBPScriptObject.OPTION_INCLUDE_NESTED_OBJECTS));
+        sqlGenerator.setSkipDrops(getDialogBoundsSettings().get(DBPScriptObject.OPTION_SKIP_DROPS) != null &&
+            getDialogBoundsSettings().getBoolean(DBPScriptObject.OPTION_SKIP_DROPS));
 
         generateDDLJob = new AbstractJob("Generating DDL") {
             @NotNull
@@ -281,6 +290,17 @@ class SQLGeneratorDialog extends ViewSQLDialog {
                 public void widgetSelected(SelectionEvent e) {
                     sqlGenerator.setShowCastParams(supportsCastParamsButton.getSelection());
                     getDialogBoundsSettings().put(DBPScriptObject.OPTION_CAST_PARAMS, supportsCastParamsButton.getSelection());
+                    startGenerateJob();
+                }
+            });
+        }
+        if (supportsSkipDrop) {
+            Button chkSkipDrop = UIUtils.createCheckbox(settings, "Skip DROP statements", sqlGenerator.isSkipDrops());
+            chkSkipDrop.addSelectionListener(new SelectionAdapter() {
+                @Override
+                public void widgetSelected(@NotNull SelectionEvent e) {
+                    sqlGenerator.setSkipDrops(chkSkipDrop.getSelection());
+                    getDialogBoundsSettings().put(DBPScriptObject.OPTION_SKIP_DROPS, chkSkipDrop.getSelection());
                     startGenerateJob();
                 }
             });

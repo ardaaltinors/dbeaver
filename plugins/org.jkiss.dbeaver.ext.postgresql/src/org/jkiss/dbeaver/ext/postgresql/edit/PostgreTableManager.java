@@ -150,7 +150,7 @@ public class PostgreTableManager extends PostgreTableManagerBase implements DBEO
         if (tableBase.isPersisted()) {
             String tableDDL = tableBase.getDataSource().getServerType().readTableDDL(monitor, tableBase);
             if (tableDDL != null) {
-                actions.add(0, new SQLDatabasePersistAction(ModelMessages.model_jdbc_create_new_table, tableDDL));
+                actions.add(new SQLDatabasePersistAction(ModelMessages.model_jdbc_create_new_table, tableDDL));
                 return;
             }
         }

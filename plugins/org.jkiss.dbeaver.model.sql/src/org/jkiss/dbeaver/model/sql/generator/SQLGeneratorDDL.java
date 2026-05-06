@@ -107,6 +107,5 @@ public class SQLGeneratorDDL extends SQLGenerator<DBPScriptObject> {
     protected void addOptions(Map<String, Object> options) {
         super.addOptions(options);
         options.put(DBPScriptObject.OPTION_REFRESH, true);
-        options.put(DBPScriptObject.OPTION_INCLUDE_OBJECT_DROP, true);
     }
 }

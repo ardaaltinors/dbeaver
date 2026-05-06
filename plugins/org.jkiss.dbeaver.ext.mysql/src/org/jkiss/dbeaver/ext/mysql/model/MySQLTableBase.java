@@ -140,30 +140,9 @@ public abstract class MySQLTableBase extends JDBCTable<MySQLDataSource, MySQLCat
         return getContainer().getTableCache().refreshObject(monitor, getContainer(), this);
     }
 
-    public String getDDL(DBRProgressMonitor monitor, Map<String, Object> options)
-        throws DBException
-    {
-        if (!isPersisted()) {
-            return DBStructUtils.generateTableDDL(monitor, this, options, false);
-        }
-        try (JDBCSession session = DBUtils.openMetaSession(monitor, this, "Retrieve table DDL")) {
-            try (PreparedStatement dbStat = session.prepareStatement(
-                "SHOW CREATE " + (isView() ? "VIEW" : "TABLE") + " " + getFullyQualifiedName(DBPEvaluationContext.DDL))) {
-                try (ResultSet dbResult = dbStat.executeQuery()) {
-                    if (dbResult.next()) {
-                        if (isView()) {
-                            return dbResult.getString("Create View");
-                        } else {
-                            return dbResult.getString("Create Table");
-                        }
-                    } else {
-                        return "DDL is not available";
-                    }
-                }
-            }
-        } catch (SQLException ex) {
-            throw new DBDatabaseException(ex, getDataSource());
-        }
+    @NotNull
+    @Override
+    public String getObjectDefinitionText(@NotNull DBRProgressMonitor monitor, @NotNull Map<String, Object> options) throws DBException {
+        return DBStructUtils.generateTableDDL(monitor, this, options, false);
     }
-
 }

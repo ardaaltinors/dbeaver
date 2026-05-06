@@ -44,6 +44,7 @@ public abstract class SQLGenerator<OBJECT> extends DBRRunnableWithResult<String>
     private boolean useSeparateForeignKeys = true;
     private boolean showPartitionsDDL = false;
     private boolean showCastParams = false;
+    private boolean skipDrops = false;
 
     private final Map<String, Object> generatorOptions = new LinkedHashMap<>();
 
@@ -135,6 +136,14 @@ public abstract class SQLGenerator<OBJECT> extends DBRRunnableWithResult<String>
         this.showCastParams = showCastParams;
     }
 
+    public boolean isSkipDrops() {
+        return skipDrops;
+    }
+
+    public void setSkipDrops(boolean skipDrops) {
+        this.skipDrops = skipDrops;
+    }
+
     public boolean isDDLOption() {
         return false;
     }
@@ -195,6 +204,7 @@ public abstract class SQLGenerator<OBJECT> extends DBRRunnableWithResult<String>
         options.put(DBPScriptObject.OPTION_DDL_SEPARATE_FOREIGN_KEYS_STATEMENTS, isUseSeparateForeignKeys());
         options.put(DBPScriptObject.OPTION_INCLUDE_PARTITIONS, isShowPartitionsDDL());
         options.put(DBPScriptObject.OPTION_CAST_PARAMS, isShowCastParams());
+        options.put(DBPScriptObject.OPTION_SKIP_DROPS, isSkipDrops());
         options.putAll(generatorOptions);
     }
 

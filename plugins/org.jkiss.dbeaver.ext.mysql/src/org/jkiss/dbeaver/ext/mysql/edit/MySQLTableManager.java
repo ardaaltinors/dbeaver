@@ -18,6 +18,7 @@ package org.jkiss.dbeaver.ext.mysql.edit;
 
 import org.jkiss.code.NotNull;
 import org.jkiss.code.Nullable;
+import org.jkiss.dbeaver.DBDatabaseException;
 import org.jkiss.dbeaver.DBException;
 import org.jkiss.dbeaver.ext.mysql.model.*;
 import org.jkiss.dbeaver.model.*;
@@ -26,7 +27,10 @@ import org.jkiss.dbeaver.model.edit.DBEObjectRenamer;
 import org.jkiss.dbeaver.model.edit.DBEPersistAction;
 import org.jkiss.dbeaver.model.exec.DBCException;
 import org.jkiss.dbeaver.model.exec.DBCExecutionContext;
+import org.jkiss.dbeaver.model.exec.jdbc.JDBCSession;
 import org.jkiss.dbeaver.model.impl.edit.SQLDatabasePersistAction;
+import org.jkiss.dbeaver.model.impl.sql.edit.SQLObjectEditor;
+import org.jkiss.dbeaver.model.impl.sql.edit.SQLStructEditor;
 import org.jkiss.dbeaver.model.impl.sql.edit.struct.SQLTableManager;
 import org.jkiss.dbeaver.model.messages.ModelMessages;
 import org.jkiss.dbeaver.model.runtime.DBRProgressMonitor;
@@ -37,6 +41,9 @@ import org.jkiss.dbeaver.model.struct.cache.DBSObjectCache;
 import org.jkiss.dbeaver.model.struct.rdb.DBSTableIndex;
 import org.jkiss.utils.CommonUtils;
 
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.SQLException;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
@@ -110,21 +117,63 @@ public class MySQLTableManager extends SQLTableManager<MySQLTableBase, MySQLCata
     }
 
     @Override
+    protected void addObjectDeleteActions(
+        @NotNull DBRProgressMonitor monitor,
+        @NotNull DBCExecutionContext executionContext,
+        @NotNull List<DBEPersistAction> actions,
+        @NotNull SQLObjectEditor<MySQLTableBase, MySQLCatalog>.ObjectDeleteCommand command,
+        @NotNull Map<String, Object> options
+    ) {
+        MySQLTableBase table = command.getObject();
+        final String tableName = DBUtils.getEntityScriptName(table, options);
+        final String sqlDropText = "DROP " + getDropTableType(table) + " IF EXISTS " + tableName + // $NON-NLS-1$ $NON-NLS-2$
+            (!DBUtils.isView(table) && CommonUtils.getOption(options, OPTION_DELETE_CASCADE) ? " CASCADE" : ""); // $NON-NLS-1$ $NON-NLS-2$
+
+        actions.add(new SQLDatabasePersistAction(ModelMessages.model_jdbc_drop_table, sqlDropText));
+    }
+
+    @Override
     protected void addStructObjectCreateActions(
         @NotNull DBRProgressMonitor monitor,
         @NotNull DBCExecutionContext executionContext,
         @NotNull List<DBEPersistAction> actions,
-        @NotNull StructCreateCommand command,
+        @NotNull SQLStructEditor<MySQLTableBase, MySQLCatalog>.StructCreateCommand command,
         @NotNull Map<String, Object> options
     ) throws DBException {
-
-        if (CommonUtils.getOption(options, DBPScriptObject.OPTION_INCLUDE_OBJECT_DROP)) {
-            final MySQLTableBase table = command.getObject();
-            final String tableName = DBUtils.getEntityScriptName(table, options);
-            actions.add(0, new SQLDatabasePersistAction(ModelMessages.model_jdbc_create_new_table, "DROP TABLE IF EXISTS " + tableName));
+        if (command.getObject().isPersisted()) {
+            actions.addAll(this.getTableDDLFromServer(monitor, command.getObject()));
+        } else {
+            super.addStructObjectCreateActions(monitor, executionContext, actions, command, options);
         }
+    }
 
-        super.addStructObjectCreateActions(monitor, executionContext, actions, command, options);
+    @NotNull
+    protected Collection<DBEPersistAction> getTableDDLFromServer(
+        @NotNull DBRProgressMonitor monitor,
+        @NotNull MySQLTableBase table
+    ) throws DBException {
+        try (JDBCSession session = DBUtils.openMetaSession(monitor, table, "Retrieve table DDL")) {
+            String ddlSqlText;
+            try (
+                PreparedStatement dbStat = session.prepareStatement(
+                "SHOW CREATE " + (table.isView() ? "VIEW" : "TABLE") + " " + table.getFullyQualifiedName(DBPEvaluationContext.DDL))) {
+                try (ResultSet dbResult = dbStat.executeQuery()) {
+                    if (dbResult.next()) {
+                        if (table.isView()) {
+                            ddlSqlText = dbResult.getString("Create View");
+                        } else {
+                            ddlSqlText = dbResult.getString("Create Table");
+                        }
+                    } else {
+                        ddlSqlText = "-- DDL is not available";
+                    }
+                }
+            }
+
+            return List.of(new SQLDatabasePersistAction(ModelMessages.model_jdbc_create_new_table, ddlSqlText));
+        } catch (SQLException ex) {
+            throw new DBDatabaseException(ex, table.getDataSource());
+        }
     }
 
     @Override

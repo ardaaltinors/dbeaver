@@ -353,11 +353,13 @@ public class DataTransferWizard extends TaskConfigurationWizard<DataTransferSett
             IWizardPage[] pages = getPages();
             getContainer().showPage(pages[pages.length - 1]);
         }
-        {
+        if (settings.getProcessor() != null) {
             // Track feature
             Map<String, Object> params = new LinkedHashMap<>();
-            params.put(DataTransferFeatures.PARAM_TRANSFER_TYPE,
-                settings.isProducerProcessor() ? "import" : "export");
+            params.put(
+                DataTransferFeatures.PARAM_TRANSFER_TYPE,
+                settings.isProducerProcessor() ? "import" : "export"
+            );
             if (settings.getProcessor() != null) {
                 params.put(DataTransferFeatures.PARAM_TRANSFER_DATA_TYPE, settings.getProcessor().getName());
             }
